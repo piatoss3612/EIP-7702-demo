@@ -1,6 +1,6 @@
 "use client";
 
-import SignAuthorizationBox from "../components/SignAuthorizationBox";
+import SignAuthorizationBox from "@/components/SignAuthorizationBox";
 
 export default function Home() {
   return (
