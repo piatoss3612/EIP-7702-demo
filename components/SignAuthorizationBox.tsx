@@ -3,8 +3,11 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { zeroAddress } from "viem";
 import { Text, Flex } from "@radix-ui/themes";
+import { useWalletClient } from "wagmi";
+import toast from "react-hot-toast";
 
 export default function SignAuthorizationBox() {
+  const { data: walletClientFromHook } = useWalletClient();
   const { walletClient, authorization, handleSignAuthorization } = useAuth();
 
   const [contractAddress, setContractAddress] = useState<`0x${string}`>("0x0");
@@ -19,10 +22,22 @@ export default function SignAuthorizationBox() {
     await handleSignAuthorization(zeroAddress);
   };
 
+  const handleTriggerTx = async () => {
+    if (!authorization) {
+      toast.error("Please sign authorization first");
+      return;
+    }
+
+    await walletClientFromHook?.sendTransaction({
+      address: authorization?.address,
+      authorizationList: [authorization],
+    });
+  };
+
   return (
     <div className="bg-white dark:bg-gray-900 p-6 rounded shadow-lg">
       <h1 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-100">
-        2. Authorization 서명
+        2. Authorization 서명 및 트랜잭션 실행
       </h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Contract Address 입력 필드 */}
@@ -160,6 +175,30 @@ export default function SignAuthorizationBox() {
               </Text>
             </Flex>
           </Flex>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => handleTriggerTx()}
+              disabled={!walletClient}
+              className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded transition-colors hover:bg-blue-500 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="9 10 4 15 9 20"></polyline>
+                <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+              </svg>
+              트랜잭션 실행
+            </button>
+          </div>
         </div>
       )}
     </div>

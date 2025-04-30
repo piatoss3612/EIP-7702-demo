@@ -107,6 +107,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const authorizationTuple = await walletClient.signAuthorization({
         account,
         contractAddress,
+        nonce:
+          (await publicClient.getTransactionCount({
+            address: account.address,
+          })) + 1,
       });
 
       setAuthorization(authorizationTuple);
