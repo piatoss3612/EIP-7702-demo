@@ -7,11 +7,12 @@ import { WagmiProvider } from "wagmi";
 import { holesky, sepolia, baseSepolia } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { CustomThemeProvider } from "../contexts/ThemeContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const config = getDefaultConfig({
   appName: "EIP-7702 Demo",
   projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "",
-  chains: [holesky, sepolia, baseSepolia],
+  chains: [sepolia, holesky, baseSepolia],
   ssr: true, // If your dApp uses server side rendering (SSR)
 });
 
@@ -22,7 +23,9 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
     <CustomThemeProvider>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider>{children}</RainbowKitProvider>
+          <RainbowKitProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </RainbowKitProvider>
         </QueryClientProvider>
       </WagmiProvider>
     </CustomThemeProvider>
