@@ -1,53 +1,28 @@
 import * as React from "react";
 import { useState } from "react";
-import { useWalletClient } from "wagmi";
-import { SignAuthorizationReturnType } from "viem/accounts";
-import toast from "react-hot-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { zeroAddress } from "viem";
+import { Text, Flex } from "@radix-ui/themes";
 
 export default function SignAuthorizationBox() {
-  const [contractAddress, setContractAddress] = useState<`0x${string}`>("0x0");
-  const [authorization, setAuthorization] =
-    useState<SignAuthorizationReturnType | null>(null);
+  const { walletClient, authorization, handleSignAuthorization } = useAuth();
 
-  const { data: walletClient } = useWalletClient();
+  const [contractAddress, setContractAddress] = useState<`0x${string}`>("0x0");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!walletClient) {
-      toast.error("Please connect your wallet");
-      return;
-    }
+    await handleSignAuthorization(contractAddress);
+  };
 
-    const account = walletClient.account;
-
-    // json-rpc account is not yet supported
-    const authorization = await walletClient.prepareAuthorization({
-      account,
-      contractAddress,
-    });
-
-    try {
-      const authorizationTuple = await walletClient.signAuthorization(
-        authorization
-      );
-
-      setAuthorization(authorizationTuple);
-    } catch (error) {
-      console.error(error);
-
-      if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error("An unknown error occurred");
-      }
-    }
+  const handleRevoke = async () => {
+    await handleSignAuthorization(zeroAddress);
   };
 
   return (
     <div className="bg-white dark:bg-gray-900 p-6 rounded shadow-lg">
       <h1 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-100">
-        1. Sign Authorization
+        2. Authorization 서명
       </h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Contract Address 입력 필드 */}
@@ -56,7 +31,7 @@ export default function SignAuthorizationBox() {
             htmlFor="contractAddress"
             className="block text-sm font-medium text-gray-700 dark:text-gray-300"
           >
-            Contract Address
+            컨트랙트 주소
           </label>
           <input
             id="contractAddress"
@@ -75,6 +50,8 @@ export default function SignAuthorizationBox() {
           <div className="flex justify-end">
             <button
               type="button"
+              onClick={() => handleRevoke()}
+              disabled={!walletClient}
               className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded transition-colors hover:bg-red-500 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400"
             >
               Revoke
@@ -84,39 +61,105 @@ export default function SignAuthorizationBox() {
           <div className="flex justify-end">
             <button
               type="submit"
+              disabled={!walletClient}
               className="px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded transition-colors hover:bg-green-500 dark:hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400"
             >
-              Sign
+              Grant
             </button>
           </div>
         </div>
       </form>
       {authorization && (
-        <div className="mt-4">
-          <h2 className="text-lg font-bold mb-2 text-gray-800 dark:text-gray-100">
-            Authorization Tuple
-          </h2>
-          <p className="text-gray-700 dark:text-gray-300">
-            <strong>Chain ID:</strong> {authorization.chainId}
-          </p>
-          <p className="text-gray-700 dark:text-gray-300">
-            <strong>Contract Address:</strong> {authorization.address}
-          </p>
-          <p className="text-gray-700 dark:text-gray-300">
-            <strong>Nonce:</strong> {authorization.nonce}
-          </p>
-          <p className="text-gray-700 dark:text-gray-300">
-            <strong>R:</strong> {authorization.r}
-          </p>
-          <p className="text-gray-700 dark:text-gray-300">
-            <strong>S:</strong> {authorization.s}
-          </p>
-          <p className="text-gray-700 dark:text-gray-300">
-            <strong>V:</strong> {authorization.v}
-          </p>
-          <p className="text-gray-700 dark:text-gray-300">
-            <strong>Y Parity:</strong> {authorization.yParity}
-          </p>
+        <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <Text size="3" weight="medium" className="mb-4">
+            서명된 인증 정보
+          </Text>
+          <Flex direction="column" gap="2">
+            <Flex gap="2" align="center">
+              <Text
+                size="2"
+                weight="medium"
+                className="text-gray-500 dark:text-gray-400 w-24"
+              >
+                체인 ID:
+              </Text>
+              <Text size="2" className="font-mono">
+                {authorization.chainId}
+              </Text>
+            </Flex>
+            <Flex gap="2" align="center">
+              <Text
+                size="2"
+                weight="medium"
+                className="text-gray-500 dark:text-gray-400 w-24"
+              >
+                컨트랙트:
+              </Text>
+              <Text size="2" className="font-mono truncate">
+                {authorization.address}
+              </Text>
+            </Flex>
+            <Flex gap="2" align="center">
+              <Text
+                size="2"
+                weight="medium"
+                className="text-gray-500 dark:text-gray-400 w-24"
+              >
+                논스:
+              </Text>
+              <Text size="2" className="font-mono">
+                {authorization.nonce}
+              </Text>
+            </Flex>
+            <Flex gap="2" align="center">
+              <Text
+                size="2"
+                weight="medium"
+                className="text-gray-500 dark:text-gray-400 w-24"
+              >
+                R:
+              </Text>
+              <Text size="2" className="font-mono truncate">
+                {authorization.r}
+              </Text>
+            </Flex>
+            <Flex gap="2" align="center">
+              <Text
+                size="2"
+                weight="medium"
+                className="text-gray-500 dark:text-gray-400 w-24"
+              >
+                S:
+              </Text>
+              <Text size="2" className="font-mono truncate">
+                {authorization.s}
+              </Text>
+            </Flex>
+            <Flex gap="2" align="center">
+              <Text
+                size="2"
+                weight="medium"
+                className="text-gray-500 dark:text-gray-400 w-24"
+              >
+                V:
+              </Text>
+              <Text size="2" className="font-mono">
+                {authorization.v}
+              </Text>
+            </Flex>
+            <Flex gap="2" align="center">
+              <Text
+                size="2"
+                weight="medium"
+                className="text-gray-500 dark:text-gray-400 w-24"
+              >
+                Y Parity:
+              </Text>
+              <Text size="2" className="font-mono">
+                {authorization.yParity}
+              </Text>
+            </Flex>
+          </Flex>
         </div>
       )}
     </div>

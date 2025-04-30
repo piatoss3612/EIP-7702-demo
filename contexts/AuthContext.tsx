@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import toast from "react-hot-toast";
 import {
   createWalletClient,
   http,
@@ -12,12 +13,15 @@ import {
   generatePrivateKey,
   mnemonicToAccount,
   privateKeyToAccount,
+  SignAuthorizationReturnType,
 } from "viem/accounts";
 import { useChainId, useConfig } from "wagmi";
 
 interface AuthContextType {
   walletClient: WalletClient | null;
   publicClient: PublicClient | null;
+  account: Account | null;
+  authorization: SignAuthorizationReturnType | null;
   isConnected: boolean;
   connect: ({
     mnemonic,
@@ -28,6 +32,7 @@ interface AuthContextType {
   }) => Promise<void>;
   disconnect: () => void;
   isLoading: boolean;
+  handleSignAuthorization: (contractAddress: `0x${string}`) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [isLoading, setIsLoading] = useState(false);
   const [account, setAccount] = useState<Account | null>(null);
+  const [authorization, setAuthorization] =
+    useState<SignAuthorizationReturnType | null>(null);
 
   const publicClient = createPublicClient({
     chain:
@@ -83,15 +90,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccount(null);
   };
 
+  const handleSignAuthorization = async (contractAddress: `0x${string}`) => {
+    if (!walletClient) {
+      toast.error("Please connect your wallet");
+      return;
+    }
+
+    const account = walletClient.account;
+
+    if (!account) {
+      toast.error("Please connect your wallet");
+      return;
+    }
+
+    try {
+      const authorizationTuple = await walletClient.signAuthorization({
+        account,
+        contractAddress,
+      });
+
+      setAuthorization(authorizationTuple);
+    } catch (error) {
+      console.error(error);
+
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("An unknown error occurred");
+      }
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         walletClient,
+        account,
+        authorization,
         publicClient,
         isConnected: !!walletClient,
         connect,
         disconnect,
         isLoading,
+        handleSignAuthorization,
       }}
     >
       {children}
