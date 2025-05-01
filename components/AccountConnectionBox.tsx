@@ -135,12 +135,34 @@ export function AccountConnectionBox() {
 
           <Tabs.Content value="mnemonic">
             <Flex direction="column" gap="3" className="mb-4">
-              <TextField.Root
-                placeholder="니모닉 구문 입력"
-                value={mnemonic}
-                onChange={(e) => setMnemonic(e.target.value)}
-                className="min-h-[100px] w-full"
-              />
+              <div className="relative">
+                <TextField.Root
+                  type="password"
+                  placeholder="니모닉 구문 입력"
+                  value={mnemonic}
+                  onChange={(e) => setMnemonic(e.target.value)}
+                  className="min-h-[100px] w-full pr-20"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const inputElem = document.querySelector(
+                      'input[type="password"][value="' + mnemonic + '"]'
+                    ) as HTMLInputElement;
+                    if (inputElem) {
+                      if (inputElem.type === "password") {
+                        inputElem.type = "text";
+                        setTimeout(() => {
+                          inputElem.type = "password";
+                        }, 3000); // 3초 후 다시 가림
+                      }
+                    }
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                >
+                  3초간 표시
+                </button>
+              </div>
 
               <Flex justify="end">
                 <Button
@@ -159,12 +181,34 @@ export function AccountConnectionBox() {
 
           <Tabs.Content value="privateKey">
             <Flex direction="column" gap="3" className="mb-4">
-              <TextField.Root
-                placeholder="0x로 시작하는 개인 키 입력"
-                value={privateKey}
-                onChange={(e) => setPrivateKey(e.target.value)}
-                className="w-full"
-              />
+              <div className="relative">
+                <TextField.Root
+                  type="password"
+                  placeholder="0x로 시작하는 개인 키 입력"
+                  value={privateKey}
+                  onChange={(e) => setPrivateKey(e.target.value)}
+                  className="w-full pr-20"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const inputElem = document.querySelector(
+                      'input[type="password"][value="' + privateKey + '"]'
+                    ) as HTMLInputElement;
+                    if (inputElem) {
+                      if (inputElem.type === "password") {
+                        inputElem.type = "text";
+                        setTimeout(() => {
+                          inputElem.type = "password";
+                        }, 3000); // 3초 후 다시 가림
+                      }
+                    }
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                >
+                  3초간 표시
+                </button>
+              </div>
 
               <Flex justify="end">
                 <Button

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { zeroAddress } from "viem";
+import { TransactionReceipt, zeroAddress } from "viem";
 import { Text, Flex } from "@radix-ui/themes";
 import { useChainId, useWalletClient } from "wagmi";
 import toast from "react-hot-toast";
@@ -18,10 +18,14 @@ const ACCOUNT_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
 
 export default function SignAuthorizationBox() {
   const { data: walletClientFromHook } = useWalletClient();
-  const { walletClient, authorization, handleSignAuthorization } = useAuth();
+  const { walletClient, publicClient, authorization, handleSignAuthorization } =
+    useAuth();
   const chainId = useChainId();
 
   const [contractAddress, setContractAddress] = useState<`0x${string}`>("0x0");
+  const [isLoading, setIsLoading] = useState(false);
+  const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
+  const [receipt, setReceipt] = useState<TransactionReceipt | null>(null);
 
   // Update contract address when chainId changes
   useEffect(() => {
@@ -42,16 +46,41 @@ export default function SignAuthorizationBox() {
   };
 
   const handleTriggerTx = async () => {
-    if (!authorization) {
-      toast.error("Please sign authorization first");
-      return;
-    }
+    try {
+      setIsLoading(true);
 
-    await walletClientFromHook?.sendTransaction({
-      address: authorization?.address,
-      authorizationList: [authorization],
-      kzg: undefined,
-    });
+      if (!authorization) {
+        toast.error("Please sign authorization first");
+        return;
+      }
+
+      const txHash = await walletClientFromHook?.sendTransaction({
+        authorizationList: [authorization],
+        kzg: undefined,
+      });
+
+      if (!txHash) {
+        toast.error("Failed to send transaction");
+        return;
+      }
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      if (!receipt) {
+        toast.error("Failed to wait for transaction receipt");
+        return;
+      }
+
+      setTxHash(txHash);
+      setReceipt(receipt);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to trigger transaction");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -126,7 +155,7 @@ export default function SignAuthorizationBox() {
                 disabled={!walletClient}
                 className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded transition-colors hover:bg-red-500 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400"
               >
-                Revoke
+                권한 제거
               </button>
             </div>
             {/* 서명 버튼 */}
@@ -136,7 +165,7 @@ export default function SignAuthorizationBox() {
                 disabled={!walletClient}
                 className="px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded transition-colors hover:bg-green-500 dark:hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400"
               >
-                Grant
+                권한 부여
               </button>
             </div>
           </div>
@@ -238,26 +267,185 @@ export default function SignAuthorizationBox() {
             <button
               type="button"
               onClick={() => handleTriggerTx()}
-              disabled={!walletClient}
+              disabled={!walletClient || isLoading}
               className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded transition-colors hover:bg-blue-500 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="9 10 4 15 9 20"></polyline>
-                <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
-              </svg>
-              트랜잭션 실행
+              {isLoading ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  <span>처리 중...</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="9 10 4 15 9 20"></polyline>
+                    <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+                  </svg>
+                  트랜잭션 실행
+                </>
+              )}
             </button>
           </div>
+
+          {/* 트랜잭션 결과 섹션 */}
+          {(txHash || receipt) && (
+            <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+              <div className="flex items-center mb-3">
+                <svg
+                  className="h-5 w-5 text-green-500 mr-2"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <Text
+                  size="3"
+                  weight="medium"
+                  className="text-green-800 dark:text-green-200"
+                >
+                  트랜잭션이 성공적으로 실행되었습니다
+                </Text>
+              </div>
+
+              {txHash && (
+                <div className="mb-4">
+                  <div className="flex items-center mb-1">
+                    <Text
+                      size="2"
+                      weight="medium"
+                      className="text-green-700 dark:text-green-300"
+                    >
+                      트랜잭션 해시
+                    </Text>
+                    <a
+                      href={`${
+                        chainId === sepolia.id
+                          ? sepolia.blockExplorers.default.url
+                          : chainId === baseSepolia.id
+                          ? baseSepolia.blockExplorers.default.url
+                          : "#"
+                      }/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-xs text-blue-500 hover:underline flex items-center"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5 mr-1"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5z"
+                          clipRule="evenodd"
+                        />
+                        <path
+                          fillRule="evenodd"
+                          d="M6.194 12.753a.75.75 0 001.06.053L16.5 4.44v2.81a.75.75 0 001.5 0v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 000 1.5h2.553l-9.056 8.194a.75.75 0 00-.053 1.06z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      블록 탐색기에서 보기
+                    </a>
+                  </div>
+                  <div className="p-2 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded font-mono text-xs overflow-auto">
+                    {txHash}
+                  </div>
+                </div>
+              )}
+
+              {receipt && (
+                <div>
+                  <Text
+                    size="2"
+                    weight="medium"
+                    className="text-green-700 dark:text-green-300 mb-1"
+                  >
+                    트랜잭션 상세 정보
+                  </Text>
+                  <div className="bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded p-3 overflow-auto max-h-80">
+                    <pre className="text-xs font-mono whitespace-pre text-gray-800 dark:text-gray-200">
+                      {(() => {
+                        // receipt 객체를 BigInt 값을 문자열로 변환하여 복사
+                        const receiptForDisplay = {
+                          ...receipt,
+                          blockNumber: receipt.blockNumber
+                            ? receipt.blockNumber.toString()
+                            : null,
+                          gasUsed: receipt.gasUsed
+                            ? receipt.gasUsed.toString()
+                            : null,
+                          cumulativeGasUsed: receipt.cumulativeGasUsed
+                            ? receipt.cumulativeGasUsed.toString()
+                            : null,
+                          effectiveGasPrice: receipt.effectiveGasPrice
+                            ? receipt.effectiveGasPrice.toString()
+                            : null,
+                          status: receipt.status
+                            ? receipt.status.toString() === "1"
+                              ? "성공 (1)"
+                              : receipt.status.toString() === "0"
+                              ? "실패 (0)"
+                              : receipt.status.toString()
+                            : null,
+                          // 로그를 처리
+                          logs: receipt.logs?.map((log) => ({
+                            ...log,
+                            blockNumber: log.blockNumber
+                              ? log.blockNumber.toString()
+                              : null,
+                            logIndex: log.logIndex
+                              ? log.logIndex.toString()
+                              : null,
+                            transactionIndex: log.transactionIndex
+                              ? log.transactionIndex.toString()
+                              : null,
+                          })),
+                        };
+
+                        return JSON.stringify(receiptForDisplay, null, 2);
+                      })()}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
