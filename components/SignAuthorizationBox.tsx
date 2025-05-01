@@ -6,6 +6,7 @@ import { Text, Flex } from "@radix-ui/themes";
 import { useChainId, useWalletClient } from "wagmi";
 import toast from "react-hot-toast";
 import { baseSepolia, sepolia } from "viem/chains";
+import * as Dialog from "@radix-ui/react-dialog";
 
 // Define a type for chain IDs to avoid TypeScript errors
 type SupportedChainId = typeof sepolia.id | typeof baseSepolia.id;
@@ -26,6 +27,7 @@ export default function SignAuthorizationBox() {
   const [isLoading, setIsLoading] = useState(false);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [receipt, setReceipt] = useState<TransactionReceipt | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Update contract address when chainId changes
   useEffect(() => {
@@ -75,6 +77,53 @@ export default function SignAuthorizationBox() {
 
       setTxHash(txHash);
       setReceipt(receipt);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to trigger transaction");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLocalWalletTx = async () => {
+    try {
+      setIsLoading(true);
+
+      if (!authorization) {
+        toast.error("Please sign authorization first");
+        return;
+      }
+
+      if (!walletClient || !walletClient.account) {
+        toast.error("Wallet client not available");
+        return;
+      }
+
+      const txHash = await walletClient.sendTransaction({
+        account: walletClient.account,
+        chain: null,
+        authorizationList: [authorization],
+        kzg: undefined,
+      });
+
+      if (!txHash) {
+        toast.error("Failed to send transaction");
+        return;
+      }
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      if (!receipt) {
+        toast.error("Failed to wait for transaction receipt");
+        return;
+      }
+
+      setTxHash(txHash);
+      setReceipt(receipt);
+      setIsDialogOpen(false);
+      toast.success("Transaction executed successfully");
     } catch (error) {
       console.error(error);
       toast.error("Failed to trigger transaction");
@@ -147,27 +196,122 @@ export default function SignAuthorizationBox() {
           </div>
 
           {/* 액션 버튼 */}
-          <div className="flex gap-2 justify-end">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => handleRevoke()}
-                disabled={!walletClient}
-                className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded transition-colors hover:bg-red-500 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400"
-              >
-                권한 제거
-              </button>
-            </div>
-            {/* 서명 버튼 */}
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={!walletClient}
-                className="px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded transition-colors hover:bg-green-500 dark:hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400"
-              >
-                권한 부여
-              </button>
-            </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => handleRevoke()}
+              disabled={!walletClient}
+              className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded transition-colors hover:bg-red-500 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400"
+            >
+              권한 제거
+            </button>
+            <button
+              type="submit"
+              disabled={!walletClient}
+              className="px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded transition-colors hover:bg-green-500 dark:hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400"
+            >
+              권한 부여
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsDialogOpen(true)}
+              disabled={!walletClient || isLoading}
+              className="px-4 py-2 bg-purple-600 dark:bg-purple-700 text-white rounded transition-colors hover:bg-purple-500 dark:hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  <span>처리 중...</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="9 10 4 15 9 20"></polyline>
+                    <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+                  </svg>
+                  로컬 지갑으로 실행
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTriggerTx()}
+              disabled={!walletClientFromHook || isLoading}
+              className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded transition-colors hover:bg-blue-500 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  <span>처리 중...</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="9 10 4 15 9 20"></polyline>
+                    <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+                  </svg>
+                  트랜잭션 실행
+                </>
+              )}
+            </button>
           </div>
         </div>
       </form>
@@ -263,58 +407,6 @@ export default function SignAuthorizationBox() {
               </Text>
             </Flex>
           </Flex>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => handleTriggerTx()}
-              disabled={!walletClient || isLoading}
-              className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded transition-colors hover:bg-blue-500 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <span>처리 중...</span>
-                </>
-              ) : (
-                <>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="9 10 4 15 9 20"></polyline>
-                    <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
-                  </svg>
-                  트랜잭션 실행
-                </>
-              )}
-            </button>
-          </div>
 
           {/* 트랜잭션 결과 섹션 */}
           {(txHash || receipt) && (
@@ -446,6 +538,37 @@ export default function SignAuthorizationBox() {
               )}
             </div>
           )}
+
+          {/* 트랜잭션 확인 다이얼로그 */}
+          <Dialog.Root open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog.Portal>
+              <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-overlayShow" />
+              <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-[90vw] max-w-md data-[state=open]:animate-contentShow">
+                <Dialog.Title className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
+                  트랜잭션 실행 확인
+                </Dialog.Title>
+                <Dialog.Description className="mb-5 text-gray-600 dark:text-gray-300">
+                  로컬 지갑 클라이언트를 사용하여 트랜잭션을 실행하시겠습니까?
+                </Dialog.Description>
+
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-100 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                    onClick={() => setIsDialogOpen(false)}
+                  >
+                    취소
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-purple-600 dark:bg-purple-700 text-white rounded transition-colors hover:bg-purple-500 dark:hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    onClick={handleLocalWalletTx}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "처리 중..." : "확인"}
+                  </button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
         </div>
       )}
     </div>
