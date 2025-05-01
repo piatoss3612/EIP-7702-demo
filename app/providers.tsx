@@ -4,7 +4,7 @@ import "@radix-ui/themes/styles.css";
 import "@rainbow-me/rainbowkit/styles.css";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
-import { holesky, sepolia, baseSepolia } from "wagmi/chains";
+import { sepolia, baseSepolia } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { CustomThemeProvider } from "../contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -12,7 +12,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 const config = getDefaultConfig({
   appName: "EIP-7702 Demo",
   projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "",
-  chains: [sepolia, holesky, baseSepolia],
+  chains: [sepolia, baseSepolia],
   ssr: true, // If your dApp uses server side rendering (SSR)
 });
 
