@@ -90,7 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccount(null);
   };
 
-  const handleSignAuthorization = async (contractAddress: `0x${string}`) => {
+  const handleSignAuthorization = async (
+    contractAddress: `0x${string}`,
+    isDelegating?: boolean
+  ) => {
     if (!walletClient) {
       toast.error("Please connect your wallet");
       return;
@@ -107,10 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const authorizationTuple = await walletClient.signAuthorization({
         account,
         contractAddress,
-        nonce:
-          (await publicClient.getTransactionCount({
-            address: account.address,
-          })) + 1,
+        executor: isDelegating ? undefined : "self",
       });
 
       setAuthorization(authorizationTuple);
